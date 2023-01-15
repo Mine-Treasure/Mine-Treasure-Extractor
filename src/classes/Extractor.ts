@@ -31,9 +31,13 @@ export class Extractor {
         extractors.sort((a, b) => b.instance.priority - a.instance.priority);
         for (const { file, instance } of extractors) {
             const started = Date.now()
-            passingData = await instance.Extract();
+            try {
+                passingData = await instance.Extract();
+            } catch (exception) {
+                this.logger.error(chalk.bold.red(""), chalk.bold.blueBright(file), "failed to extract with exception:", exception);
+                continue;
+            }
             const ended = Date.now();
-
             this.logger.info(chalk.bold.green(""), chalk.bold.blueBright(file), "extracted in", chalk.bold.rgb(255, 127, 0)((ended - started) + "ms"))
         }
     }

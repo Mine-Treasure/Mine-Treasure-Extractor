@@ -35,7 +35,7 @@ interface PoolItem {
 export default class LootExtractor extends BaseExtractor {
 
     public priority = 10;
-    private readonly LOOT_TABLE_DIR = this.getRelativePath('data/minecraft/loot_tables/chests');
+    private readonly LOOT_TABLE_DIR = this.getRelativePath('data/mt/loot_tables/chests');
     private readonly IGNORED_FILES = ["mineshaft.json"];
 
 
