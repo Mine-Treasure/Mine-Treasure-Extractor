@@ -9,6 +9,7 @@ export default class BiomesExtractor extends BaseExtractor {
     private readonly ANIMATION_FILES_DIR = this.getRelativePath('data/mt/functions/treasure_chest/tiers');
     private readonly ANIMATION_FILES = ["com_ani.mcfunction", "rare_ani.mcfunction", "leg_ani.mcfunction", "epic_ani.mcfunction"];
 
+    private readonly ADDITIONAL_BIOMES = { "the end": "end/default", "the nether": "nether/default" }
 
     public async Extract(): Promise<unknown> {
 
@@ -44,6 +45,16 @@ export default class BiomesExtractor extends BaseExtractor {
                     const biomes = await this.getBiomesFromJar(predicate);
                     out[treasure] = biomes;
                 }
+            }
+
+            for (const [biome, location] of Object.entries(this.ADDITIONAL_BIOMES)) {
+                const animationFile = this.getRelativePath(`data/mt/functions/treasure_chest/${location}/common.mcfunction`);
+                const animationFileContent = await readFile(animationFile, 'utf-8');
+                const regex = /mt:chests\/(.+)\/.+/gm;
+                const treasureCapture = regex.exec(animationFileContent);
+                if (!treasureCapture) throw new Error(`Could not find treasure in ${animationFile}`);
+                const treasure = treasureCapture[1];
+                out[treasure] = [biome];
             }
         }
         this.writeOut(out);
