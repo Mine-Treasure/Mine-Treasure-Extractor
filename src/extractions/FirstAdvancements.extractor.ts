@@ -5,6 +5,7 @@ import { BaseExtractor } from "../classes/BaseExtractor"
 export default class FirstAdvancements extends BaseExtractor {
 
     private readonly FIRST_ADVANCEMENTS_DIR = this.getRelativePath('data/mt/advancements/treasure_advancements');
+    private readonly ADVANCEMENT_OVERRIDES: Record<string, string> = { "deepdark_treasure": "deep_dark_treasure", "soulvalley_treasure": "soul_valley_treasure" }
 
     public async Extract(): Promise<unknown> {
 
@@ -22,7 +23,8 @@ export default class FirstAdvancements extends BaseExtractor {
             }
 
             const rarity = match[1];
-            const treasure = match[2];
+            let treasure = match[2];
+            if (this.ADVANCEMENT_OVERRIDES[treasure]) treasure = this.ADVANCEMENT_OVERRIDES[treasure];
 
             if (!out[treasure]) out[treasure] = {};
             out[treasure][rarity] = { title: json.display.title, description: json.display.description }
