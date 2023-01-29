@@ -6,9 +6,10 @@ export default class BiomesExtractor extends BaseExtractor {
 
     private readonly BIOMES_DIR = this.getRelativePath('data/mt/predicates/biomes');
     private readonly BIOME_OVERRIDES: Record<string, string> = {
-        'dripstone': 'dripstone_caves_biomes.json',
+        'lush_caves': 'lush_cave_biome.json',
+        'dripstone': 'dripstone.json',
         'soul_valley': 'soul_sand_valley_biome.json',
-        'badlands': 'badland_biomes.json',
+        'badlands': 'badland_biome.json',
         'basalt': 'basalt_deltas_biome.json',
         'mushroom': 'mushroom_fields_biomes.json',
         'nether': 'nether_all_biomes.json'
@@ -25,6 +26,9 @@ export default class BiomesExtractor extends BaseExtractor {
             let biomeFile = predicates.find(c => regex.test(c));
             if (!biomeFile) {
                 biomeFile = this.BIOME_OVERRIDES[t];
+            }
+            if (!biomeFile) {
+                throw new Error("Biome file not found for " + treasure);
             }
 
             const json = JSON.parse(await readFile(join(this.BIOMES_DIR, biomeFile), 'utf-8'));
