@@ -18,7 +18,7 @@ export default class Logger {
         const line = stack.split("\n")[depth + 1];
         if (!line) return ["", -1, -1];
 
-        const match = line.match(/.*\\(.+.ts):(\d+):(\d+)\)?$/) ?? [];
+        const match = line.match(/.*\\(.+.(?:js|ts)):(\d+):(\d+)\)?$/) ?? [];
         return [
             match[1] ?? "",
             parseInt(match[2] ?? -1),

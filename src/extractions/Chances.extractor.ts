@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 
 export default class ChancesExtractor extends BaseExtractor {
 
-    private readonly STONE_CHECK_FILE = this.getRelativePath('data/mt/functions/treasure_chest/tiers/stone_check_');
+    private readonly STONE_CHECK_FILE = this.getRelativePath('data/mt/functions/treasure/tiers/stone_check_');
     private readonly CHANCES = ["common", "rare", "epic", "legendary"];
 
     public async Extract(): Promise<unknown> {

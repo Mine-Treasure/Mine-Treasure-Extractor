@@ -24,7 +24,7 @@ export class Extractor {
         let passingData = {};
         for (const file of files) {
             const extractor = require(join(this.extractionsDir, file));
-            const instance = new extractor.default(file.split(".")[0], this.packDir, this.outDir, passingData);
+            const instance = new extractor.default(file.split(".")[0], this.packDir, this.outDir, passingData, this);
             extractors.push({ file: file, instance });
         }
 
@@ -40,5 +40,10 @@ export class Extractor {
             const ended = Date.now();
             this.logger.info(chalk.bold.green(""), chalk.bold.blueBright(file), "extracted in", chalk.bold.rgb(255, 127, 0)((ended - started) + "ms"))
         }
+    }
+
+    public async warning(...args: any[]) {
+        const script = Logger.getLineAndChar(7)[0];
+        this.logger.warn(chalk.bold.yellow("!"), chalk.bold.blueBright(script), ...args);;
     }
 }

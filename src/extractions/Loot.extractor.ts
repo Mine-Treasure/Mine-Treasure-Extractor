@@ -30,14 +30,18 @@ interface PoolItem {
         slot: string;
     }[];
     enchantWithLevel?: number;
+    conditions: {
+        stoneMined?: {
+            min?: number;
+            max?: number;
+        }
+    }
 }
 
 export default class LootExtractor extends BaseExtractor {
-
     public priority = 10;
     private readonly LOOT_TABLE_DIR = this.getRelativePath('data/mt/loot_tables/chests');
     private readonly IGNORED_FILES = ["mineshaft.json"];
-
 
     public async Extract(): Promise<unknown> {
         const initial = await this.ExtractInitial();
@@ -69,14 +73,19 @@ export default class LootExtractor extends BaseExtractor {
                 const table = JSON.parse(tableContent);
 
                 if (loot[biome][rarity] === undefined) loot[biome][rarity] = [];
+                if (typeof table.pools !== "object") {
+                    this.extractor.warning(`Table ${tableFile} in biome ${biome} has no pools`);
+                    continue;
+                }
 
                 for (const pool of table.pools) {
+                    if (typeof pool.entries !== "object") console.log(pool);
                     for (const entry of pool.entries) {
                         if (entry.type !== "minecraft:item" && entry.type !== "item") {
                             continue;
                         }
 
-                        let item: PoolItem = { type: entry.name };
+                        let item: PoolItem = { type: entry.name, conditions: {} };
                         if (entry.functions) {
 
                             // NBT modifications
@@ -150,6 +159,19 @@ export default class LootExtractor extends BaseExtractor {
                             const loreModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_lore/gm.test(f.function));
                             if (loreModifications && !item["lore"]) {
                                 item["lore"] = loreModifications.lore.map((line: { text: string }) => line.text);
+                            }
+
+                            // Conditions
+                            const conditions = entry.conditions;
+                            if (conditions) {
+                                for (const condition of conditions) {
+                                    // Stone mined
+                                    if (condition.scores && condition.scores["mt.total"]) {
+                                        item.conditions.stoneMined = {};
+                                        item.conditions.stoneMined.min = condition.scores["mt.total"].min;
+                                        item.conditions.stoneMined.max = condition.scores["mt.total"].max;
+                                    }
+                                }
                             }
                         }
 

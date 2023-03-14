@@ -1,5 +1,7 @@
 import { join } from "path";
 import { writeFile } from "fs/promises";
+import { Extractor } from "./Extractor";
+import Logger from "./Logger";
 
 export abstract class BaseExtractor {
 
@@ -9,12 +11,14 @@ export abstract class BaseExtractor {
     public passingData: any;
 
     public priority = 0;
+    public extractor: Extractor;
 
-    constructor(outFile: string, rootDir: string, outDir: string, passingData: any) {
+    constructor(outFile: string, rootDir: string, outDir: string, passingData: any, extractor: Extractor) {
         this.outDir = outDir;
         this.rootDir = rootDir;
         this.outFile = outFile;
         this.passingData = passingData;
+        this.extractor = extractor;
     }
 
     public getRelativePath(path: string): string {
