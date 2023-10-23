@@ -63,122 +63,143 @@ export default class LootExtractor extends BaseExtractor {
             loot[biome] = {};
 
             const tablesPath = join(this.LOOT_TABLE_DIR, biome);
-            const tableFiles = await readdir(tablesPath);
+            const tableFiles = (await readdir(tablesPath)).filter((file) => file.endsWith("_treasure.json"));
 
             for (const tableFile of tableFiles) {
                 if (this.IGNORED_FILES.includes(tableFile)) continue;
                 const rarity = this.determineRarity(tableFile);
+                loot[biome][rarity] = await this.ExtractBiomeFile(join(tablesPath, tableFile));
+            }
+        }
+        return loot;
+    }
 
-                const tableContent = await readFile(join(tablesPath, tableFile), "utf-8");
-                const table = JSON.parse(tableContent);
+    private async ExtractBiomeFile(file: string): Promise<PoolItem[]> {
 
-                if (loot[biome][rarity] === undefined) loot[biome][rarity] = [];
-                if (typeof table.pools !== "object") {
-                    this.extractor.warning(`Table ${tableFile} in biome ${biome} has no pools`);
+        let loot: PoolItem[] = [];
+
+        const tableContent = await readFile(file, "utf-8");
+        const table = JSON.parse(tableContent);
+
+        if (typeof table.pools !== "object") {
+            this.extractor.warning(`Table ${file} has no pools`);
+            return [];
+        }
+
+        for (const pool of table.pools) {
+            for (const entry of pool.entries) {
+                // Conditions
+                let itemConditions: any = {};
+                const conditions = entry.conditions;
+                if (conditions) {
+                    for (const condition of conditions) {
+                        // Stone mined
+                        if (condition.scores && condition.scores["mt.total"]) {
+                            itemConditions.stoneMined = {};
+                            itemConditions.stoneMined.min = condition.scores["mt.total"].min;
+                            itemConditions.stoneMined.max = condition.scores["mt.total"].max;
+                        }
+                    }
+                }
+
+                if (entry.type === "minecraft:loot_table") {
+                    // mt:chests/savanna_treasure/savanna_helmet
+                    const name = entry.name.split('/').slice(1, 3).join('/') + ".json";
+                    const subLoot = await this.ExtractBiomeFile(join(this.LOOT_TABLE_DIR, name));
+                    const subLootWithCondition = subLoot.map((item: PoolItem) => {
+                        return { ...item, conditions: itemConditions }
+                    });
+                    loot = [...loot, ...subLootWithCondition];
+                }
+
+                if (entry.type !== "minecraft:item" && entry.type !== "item") {
                     continue;
                 }
 
-                for (const pool of table.pools) {
-                    if (typeof pool.entries !== "object") console.log(pool);
-                    for (const entry of pool.entries) {
-                        if (entry.type !== "minecraft:item" && entry.type !== "item") {
-                            continue;
+                let item: PoolItem = { type: entry.name, conditions: {} };
+                if (entry.functions) {
+
+                    // NBT modifications
+                    const nbtModifications = entry.functions.filter((f: { function: string }) => /(minecraft:)?set_nbt/gm.test(f.function));
+                    if (nbtModifications.length) {
+                        for (const mod of nbtModifications) {
+                            const nbtJson = JSON.parse(toJson(mod.tag))
+                            if (nbtJson.display && nbtJson.display.Name) {
+                                const parsedName = JSON.parse(nbtJson.display.Name).text;
+                                if (parsedName) {
+                                    item["name"] = parsedName;
+                                }
+                            }
+
+                            if (nbtJson.display && nbtJson.display.Lore) {
+                                const parsedLore = JSON.parse("[" + nbtJson.display.Lore + "]"); // It's an array
+                                if (parsedLore) {
+                                    item["lore"] = parsedLore.map((line: { text: string }) => line.text)
+                                }
+                            }
+
+                            if (nbtJson.Unbreakable) {
+                                item["unbreakable"] = true;
+                            }
+                            item["nbt"] = { ...item["nbt"], ...nbtJson };
                         }
+                    }
 
-                        let item: PoolItem = { type: entry.name, conditions: {} };
-                        if (entry.functions) {
-
-                            // NBT modifications
-                            const nbtModifications = entry.functions.filter((f: { function: string }) => /(minecraft:)?set_nbt/gm.test(f.function));
-                            if (nbtModifications.length) {
-                                for (const mod of nbtModifications) {
-                                    const nbtJson = JSON.parse(toJson(mod.tag))
-                                    if (nbtJson.display && nbtJson.display.Name) {
-                                        const parsedName = JSON.parse(nbtJson.display.Name).text;
-                                        if (parsedName) {
-                                            item["name"] = parsedName;
-                                        }
-                                    }
-
-                                    if (nbtJson.display && nbtJson.display.Lore) {
-                                        const parsedLore = JSON.parse("[" + nbtJson.display.Lore + "]"); // It's an array
-                                        if (parsedLore) {
-                                            item["lore"] = parsedLore.map((line: { text: string }) => line.text)
-                                        }
-                                    }
-
-                                    if (nbtJson.Unbreakable) {
-                                        item["unbreakable"] = true;
-                                    }
-                                    item["nbt"] = { ...item["nbt"], ...nbtJson };
-                                }
+                    // Attribute modifications
+                    const attributeModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_attributes/gm.test(f.function));
+                    if (attributeModifications) {
+                        item["attributes"] = attributeModifications.modifiers.map((modifier: any) => {
+                            return {
+                                name: modifier.attribute.replace("minecraft:", ""),
+                                type: modifier.operation,
+                                min: _.isObject(modifier.amount) ? modifier.amount.min : modifier.amount,
+                                max: _.isObject(modifier.amount) ? modifier.amount.max : modifier.amount,
+                                slot: modifier.slot ? (_.isArray(modifier.slot) ? modifier.slot[0] : modifier.slot) : undefined
                             }
+                        });
+                    }
 
-                            // Attribute modifications
-                            const attributeModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_attributes/gm.test(f.function));
-                            if (attributeModifications) {
-                                item["attributes"] = attributeModifications.modifiers.map((modifier: any) => {
-                                    return {
-                                        name: modifier.attribute.replace("minecraft:", ""),
-                                        type: modifier.operation,
-                                        min: _.isObject(modifier.amount) ? modifier.amount.min : modifier.amount,
-                                        max: _.isObject(modifier.amount) ? modifier.amount.max : modifier.amount,
-                                        slot: modifier.slot ? (_.isArray(modifier.slot) ? modifier.slot[0] : modifier.slot) : undefined
-                                    }
-                                });
-                            }
-
-                            // Enchantment modifications
-                            const enchantmentModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_enchantments/gm.test(f.function));
-                            if (enchantmentModifications) {
-                                let enchantments = [];
-                                for (const key of Object.keys(enchantmentModifications.enchantments)) {
-                                    enchantments.push({
-                                        type: key.replace('minecraft:', ''),
-                                        min: (_.isObject(enchantmentModifications.enchantments[key].min) ? enchantmentModifications.enchantments[key].min.value : enchantmentModifications.enchantments[key].min) ?? 1,
-                                        max: (_.isObject(enchantmentModifications.enchantments[key].max) ? enchantmentModifications.enchantments[key].max.value : enchantmentModifications.enchantments[key].max) ?? 1
-                                    })
-                                }
-                                item["enchantments"] = enchantments
-                            }
-
-                            // Enchantment with levels
-                            const enchantmentWithLevels = entry.functions.find((f: { function: string }) => /(minecraft:)?enchant_with_levels/gm.test(f.function));
-                            if (enchantmentWithLevels) {
-                                item["enchantWithLevel"] = enchantmentWithLevels.levels
-                            }
-
-                            // Name modification
-                            const nameModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_name/gm.test(f.function));
-                            if (nameModifications && nameModifications.name) {
-
-                                item["name"] = nameModifications.name[0].text;
-                            }
-
-                            // Lore modification
-                            const loreModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_lore/gm.test(f.function));
-                            if (loreModifications && !item["lore"]) {
-                                item["lore"] = loreModifications.lore.map((line: { text: string }) => line.text);
-                            }
-
-                            // Conditions
-                            const conditions = entry.conditions;
-                            if (conditions) {
-                                for (const condition of conditions) {
-                                    // Stone mined
-                                    if (condition.scores && condition.scores["mt.total"]) {
-                                        item.conditions.stoneMined = {};
-                                        item.conditions.stoneMined.min = condition.scores["mt.total"].min;
-                                        item.conditions.stoneMined.max = condition.scores["mt.total"].max;
-                                    }
-                                }
-                            }
+                    // Enchantment modifications
+                    const enchantmentModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_enchantments/gm.test(f.function));
+                    if (entry.conditions && entry.conditions[0]?.scores?.["mt.total"]?.min === 50000) {
+                        console.log(enchantmentModifications)
+                    }
+                    if (enchantmentModifications) {
+                        let enchantments = [];
+                        for (const key of Object.keys(enchantmentModifications.enchantments)) {
+                            enchantments.push({
+                                type: key.replace('minecraft:', ''),
+                                min: (_.isObject(enchantmentModifications.enchantments[key].min) ? enchantmentModifications.enchantments[key].min.value : enchantmentModifications.enchantments[key].min) ?? 1,
+                                max: (_.isObject(enchantmentModifications.enchantments[key].max) ? enchantmentModifications.enchantments[key].max.value : enchantmentModifications.enchantments[key].max) ?? 1
+                            })
                         }
+                        item["enchantments"] = enchantments
+                    }
 
-                        item["type"] = item["type"].replace("minecraft:", "");
-                        if (!loot[biome][rarity].includes(item)) loot[biome][rarity].push(item);
+                    // Enchantment with levels
+                    const enchantmentWithLevels = entry.functions.find((f: { function: string }) => /(minecraft:)?enchant_with_levels/gm.test(f.function));
+                    if (enchantmentWithLevels) {
+                        item["enchantWithLevel"] = enchantmentWithLevels.levels
+                    }
+                    // Conditions
+                    item.conditions = itemConditions;
+
+                    // Name modification
+                    const nameModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_name/gm.test(f.function));
+                    if (nameModifications && nameModifications.name) {
+
+                        item["name"] = nameModifications.name[0].text;
+                    }
+
+                    // Lore modification
+                    const loreModifications = entry.functions.find((f: { function: string }) => /(minecraft:)?set_lore/gm.test(f.function));
+                    if (loreModifications && !item["lore"]) {
+                        item["lore"] = loreModifications.lore.map((line: { text: string }) => line.text);
                     }
                 }
+
+                item["type"] = item["type"].replace("minecraft:", "");
+                if (!loot.includes(item)) loot.push(item);
             }
         }
         return loot;
