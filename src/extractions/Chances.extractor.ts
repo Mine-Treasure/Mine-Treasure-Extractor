@@ -70,7 +70,7 @@ export default class ChancesExtractor extends BaseExtractor {
 
     private async ExtractLongMethod() {
         const regex =
-            /execute if entity @s\[scores={mt\.(.+)_chance=\.\.(\d+)},predicate=mt:(.+),+?.*\]/gm;
+            /execute if entity @s\[scores={mt\.(.+)_chance=\.\.(\d+)}(?:,predicate=!?mt:([a-zA-Z/]*))(?:,predicate=!?mt:[a-zA-Z/]*)?\]/gm;
         const lookupTable = this.passingData['varToBlock'];
 
         let out: Record<string, Record<string, number>> = {};
