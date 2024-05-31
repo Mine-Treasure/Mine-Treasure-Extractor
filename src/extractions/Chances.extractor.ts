@@ -1,5 +1,6 @@
+import { basename } from 'path';
 import { BaseExtractor } from '../classes/BaseExtractor';
-import { readFile } from 'fs/promises';
+import { readFile, readdir } from 'fs/promises';
 
 interface BlockPredicate {
     condition: string;
@@ -15,99 +16,50 @@ interface BlockPredicate {
 }
 
 export default class ChancesExtractor extends BaseExtractor {
-    private readonly STONE_CHECK_FILE = this.getRelativePath(
-        'data/mt/functions/treasure/tiers/stone_check_'
-    );
-    private readonly CHANCES = ['common', 'rare', 'epic', 'legendary'];
-    private readonly PREDICATE_BASE_DIR = this.getRelativePath(
-        'data/mt/predicates/'
+    private readonly MINED_DIRECTORY = this.getRelativePath(
+        'data/mt/functions/treasure/mined/'
     );
 
     public async Extract(): Promise<unknown> {
         // There are two formats. One uses predicates and one has the literal block name.
 
-        const out1 = await this.ExtractShortMethod();
-        const out2 = await this.ExtractLongMethod();
-        this.writeOut({ ...out1, ...out2 });
+        const out = await this.ExtractFromMinedDirectory();
+        this.writeOut(out);
 
         return this.passingData;
     }
 
-    private async ExtractShortMethod() {
-        const regex =
-            /execute if entity @s\[scores={mt\.(.+)_chance=\.\.(\d+),mt\.break_(.+)=1\.\.}.*?]/gm;
+    private async ExtractFromMinedDirectory() {
+        const files = await readdir(this.MINED_DIRECTORY);
         const lookupTable = this.passingData['varToBlock'];
 
         let out: Record<string, Record<string, number>> = {};
+        for (const file of files) {
+            const variableName =
+                'break_' + basename(file).replace('.mcfunction', '');
+            const blockName = lookupTable[variableName];
+            out[blockName] = {};
 
-        for (const rarity of this.CHANCES) {
-            const stoneCheckFile_contents = await readFile(
-                this.STONE_CHECK_FILE + rarity + '.mcfunction',
+            const fileContents = await readFile(
+                this.MINED_DIRECTORY + file,
                 'utf-8'
             );
-            let m;
-
-            while ((m = regex.exec(stoneCheckFile_contents)) !== null) {
-                if (m.index === regex.lastIndex) {
-                    regex.lastIndex++;
-                }
-
-                const category = m[1];
-                const chance = parseInt(m[2]);
-                let block = m[3];
-
-                const mcBlock = lookupTable[block];
-                if (!out[mcBlock]) {
-                    out[mcBlock] = {};
-                }
-
-                out[mcBlock][category] = chance;
-            }
-        }
-
-        return out;
-    }
-
-    private async ExtractLongMethod() {
-        const regex =
-            /execute if entity @s\[scores={mt\.(.+)_chance=\.\.(\d+)}(?:,predicate=!?mt:([a-zA-Z/]*))(?:,predicate=!?mt:[a-zA-Z/]*)?\]/gm;
-        const lookupTable = this.passingData['varToBlock'];
-
-        let out: Record<string, Record<string, number>> = {};
-
-        for (const rarity of this.CHANCES) {
-            const stoneCheckFile_contents = await readFile(
-                this.STONE_CHECK_FILE + rarity + '.mcfunction',
-                'utf-8'
-            );
-            let m;
-
-            while ((m = regex.exec(stoneCheckFile_contents)) !== null) {
-                if (m.index === regex.lastIndex) {
-                    regex.lastIndex++;
-                }
-
-                const category = m[1];
-                const chance = parseInt(m[2]);
-                let predicateFile = m[3];
-
-                // Search the predicate json file and extract the variable names to match them to the blocks.
-                const json = await readFile(
-                    this.PREDICATE_BASE_DIR + predicateFile + '.json',
-                    'utf-8'
+            const lines = fileContents
+                .split('\n')
+                .filter((line) =>
+                    line.includes('unless score @s mt.luck matches 1')
                 );
-                const predicate = JSON.parse(json) as BlockPredicate[];
-                predicate[0].terms.forEach((term) => {
-                    const variable = Object.keys(term.scores)[0].replace(
-                        'mt.',
-                        ''
-                    );
-                    const mcBlock = lookupTable[variable];
-                    if (!out[mcBlock]) {
-                        out[mcBlock] = {};
-                    }
-                    out[mcBlock][category] = chance;
-                });
+
+            for (const line of lines) {
+                const regex = /(\w+)_chance=\.\.(\d{1,2})/g;
+                const match = regex.exec(line);
+
+                if (!match) {
+                    throw new Error(`Could not find chance in ${line}`);
+                }
+
+                const [, rarity, chance] = match;
+                out[blockName][rarity] = parseInt(chance);
             }
         }
 
