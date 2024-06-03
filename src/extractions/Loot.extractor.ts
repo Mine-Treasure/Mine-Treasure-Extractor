@@ -205,49 +205,40 @@ export default class LootExtractor extends BaseExtractor {
                             );
                     }
 
-                    // Enchantment modifications
-                    const enchantmentModifications = entry.functions.find(
+                    // Enchantment modifications (apparently there can be multiple)
+                    const enchantmentModificationsList = entry.functions.filter(
                         (f: { function: string }) =>
                             /(minecraft:)?set_enchantments/gm.test(f.function)
                     );
-                    if (
-                        entry.conditions &&
-                        entry.conditions[0]?.scores?.['mt.total']?.min === 50000
-                    ) {
-                        console.log(enchantmentModifications);
-                    }
-                    if (enchantmentModifications) {
+
+                    if (enchantmentModificationsList) {
                         let enchantments = [];
-                        for (const key of Object.keys(
-                            enchantmentModifications.enchantments
-                        )) {
-                            enchantments.push({
-                                type: key.replace('minecraft:', ''),
-                                min:
-                                    (_.isObject(
-                                        enchantmentModifications.enchantments[
-                                            key
-                                        ].min
-                                    )
-                                        ? enchantmentModifications.enchantments[
-                                              key
-                                          ].min.value
-                                        : enchantmentModifications.enchantments[
-                                              key
-                                          ].min) ?? 1,
-                                max:
-                                    (_.isObject(
-                                        enchantmentModifications.enchantments[
-                                            key
-                                        ].max
-                                    )
-                                        ? enchantmentModifications.enchantments[
-                                              key
-                                          ].max.value
-                                        : enchantmentModifications.enchantments[
-                                              key
-                                          ].max) ?? 1,
-                            });
+                        for (const enchantmentModifications of enchantmentModificationsList) {
+                            for (const key of Object.keys(
+                                enchantmentModifications.enchantments
+                            )) {
+                                enchantments.push({
+                                    type: key.replace('minecraft:', ''),
+                                    min:
+                                        (_.isObject(
+                                            enchantmentModifications
+                                                .enchantments[key].min
+                                        )
+                                            ? enchantmentModifications
+                                                  .enchantments[key].min.value
+                                            : enchantmentModifications
+                                                  .enchantments[key].min) ?? 1,
+                                    max:
+                                        (_.isObject(
+                                            enchantmentModifications
+                                                .enchantments[key].max
+                                        )
+                                            ? enchantmentModifications
+                                                  .enchantments[key].max.value
+                                            : enchantmentModifications
+                                                  .enchantments[key].max) ?? 1,
+                                });
+                            }
                         }
                         item['enchantments'] = enchantments;
                     }

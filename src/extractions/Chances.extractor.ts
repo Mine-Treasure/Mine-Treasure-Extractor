@@ -32,12 +32,18 @@ export default class ChancesExtractor extends BaseExtractor {
     private async ExtractFromMinedDirectory() {
         const files = await readdir(this.MINED_DIRECTORY);
         const lookupTable = this.passingData['varToBlock'];
-
         let out: Record<string, Record<string, number>> = {};
         for (const file of files) {
             const variableName =
                 'break_' + basename(file).replace('.mcfunction', '');
             const blockName = lookupTable[variableName];
+            if (!blockName) {
+                this.logger.warn(
+                    `Could not find block name for ${variableName}`
+                );
+                continue;
+            }
+
             out[blockName] = {};
 
             const fileContents = await readFile(
