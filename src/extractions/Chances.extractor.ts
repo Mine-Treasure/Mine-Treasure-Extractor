@@ -17,7 +17,7 @@ interface BlockPredicate {
 
 export default class ChancesExtractor extends BaseExtractor {
     private readonly MINED_DIRECTORY = this.getRelativePath(
-        'data/mt/functions/treasure/mined/'
+        'data/mt/function/treasure/mined/'
     );
 
     public async Extract(): Promise<unknown> {

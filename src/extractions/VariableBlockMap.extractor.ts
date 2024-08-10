@@ -3,7 +3,7 @@ import { BaseExtractor } from '../classes/BaseExtractor';
 
 export default class VariableBlockMapExtractor extends BaseExtractor {
     private readonly INIT_FILE = this.getRelativePath(
-        'data/mt/functions/init.mcfunction'
+        'data/mt/function/init.mcfunction'
     );
     public priority = 100; // definitely needs to run first as other data depends on this map
 

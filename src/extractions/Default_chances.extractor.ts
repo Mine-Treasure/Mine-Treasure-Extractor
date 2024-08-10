@@ -3,7 +3,7 @@ import { readFile } from 'fs/promises';
 
 export default class Default_ChancesExtractor extends BaseExtractor {
     private readonly MID_FILE = this.getRelativePath(
-        '/data/mt/functions/settings/rates/standard.mcfunction'
+        '/data/mt/function/settings/rates/standard.mcfunction'
     );
 
     public async Extract(): Promise<unknown> {

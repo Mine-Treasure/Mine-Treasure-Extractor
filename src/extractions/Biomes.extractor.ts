@@ -40,6 +40,7 @@ export default class BiomesExtractor extends BaseExtractor {
 
             const biomes = await Promise.all(
                 json.values.map(async (term: any) => {
+                    if (term.startsWith('#c:')) return '';
                     if (term.startsWith('#minecraft:')) {
                         // Comes from the minecraft jar
                         return await this.getBiomesFromJar(term);
@@ -47,7 +48,7 @@ export default class BiomesExtractor extends BaseExtractor {
                     return term.replace('minecraft:', '').replace(/_/g, ' ');
                 })
             );
-            biomesOut[treasure] = biomes.flat();
+            biomesOut[treasure] = biomes.flat().filter((b: string) => b !== '');
         }
 
         this.writeOut(biomesOut);
@@ -62,6 +63,8 @@ export default class BiomesExtractor extends BaseExtractor {
 
         const biomes: string[] = [];
         for (const biome of predicateJson.values) {
+            if (biome.startsWith('#c:')) continue;
+
             if (biome.startsWith('#minecraft:')) {
                 const pureBiome = biome.replace('#minecraft:', '');
                 const additionalBiomes = await this.getBiomesFromJar(pureBiome);
