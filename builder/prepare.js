@@ -34,6 +34,11 @@ const downloadClientJar = async () => {
 };
 
 const downloadDatapack = async () => {
+    // Remove old datapack.zip
+    if (fs.existsSync(path.join(__dirname, './datapack.zip'))) {
+        fs.unlinkSync(path.join(__dirname, './datapack.zip'));
+    }
+
     // Fetch versions from modrinth
     const versions = await fetch(
         `https://api.modrinth.com/v2/project/${MODRINTH_ID}/version`

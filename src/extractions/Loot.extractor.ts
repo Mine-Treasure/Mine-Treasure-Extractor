@@ -67,7 +67,7 @@ export default class LootExtractor extends BaseExtractor {
 
             const tablesPath = join(this.LOOT_TABLE_DIR, biome);
             const tableFiles = (await readdir(tablesPath)).filter((file) =>
-                file.endsWith('_treasure.json')
+                file.endsWith('.json')
             );
 
             for (const tableFile of tableFiles) {
