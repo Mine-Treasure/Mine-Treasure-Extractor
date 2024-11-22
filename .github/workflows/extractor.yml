@@ -25,7 +25,7 @@ jobs:
                   npm run extract
 
             - name: Archive extracted data
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v4
               with:
                   name: extracted-data
                   path: ./out
