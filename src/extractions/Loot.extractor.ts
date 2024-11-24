@@ -37,6 +37,8 @@ interface PoolItem {
             max?: number;
         };
     };
+    skullOwner?: string;
+    skullHash?: string;
 }
 
 export default class LootExtractor extends BaseExtractor {
@@ -317,6 +319,38 @@ export default class LootExtractor extends BaseExtractor {
                             item['lore'] = loreJsonArray.map((line: string) => {
                                 return JSON.parse(line).text;
                             });
+                        }
+
+                        if (keys.includes('minecraft:profile')) {
+                            // This key is either a string or an object, if its a string we just set
+                            if (
+                                typeof componentModifications.components[
+                                    'minecraft:profile'
+                                ] === 'string'
+                            ) {
+                                item['skullOwner'] =
+                                    componentModifications.components[
+                                        'minecraft:profile'
+                                    ];
+                            } else {
+                                const textureBase64 =
+                                    componentModifications.components[
+                                        'minecraft:profile'
+                                    ].properties[0].value;
+                                const rawTextureJson = Buffer.from(
+                                    textureBase64,
+                                    'base64'
+                                ).toString();
+                                const textureJson = JSON.parse(
+                                    rawTextureJson
+                                ) as { textures: { SKIN: { url: string } } };
+
+                                const url = textureJson.textures.SKIN.url;
+                                const hash = url
+                                    .split('/texture/')[1]
+                                    .split('.png')[0];
+                                item['skullHash'] = hash;
+                            }
                         }
 
                         // Store raw component json
