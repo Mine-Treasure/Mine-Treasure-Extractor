@@ -46,7 +46,13 @@ export default class LootExtractor extends BaseExtractor {
     private readonly ROOT_LOOT_TABLE_DIR =
         this.getRelativePath('data/mt/loot_table');
     private readonly LOOT_TABLE_DIR = this.ROOT_LOOT_TABLE_DIR + '/chests';
-    private readonly IGNORED_FILES = ['mineshaft.json'];
+    private readonly WHITELISTED_FILES = [
+        'common.json',
+        'rare.json',
+        'epic.json',
+        'legendary.json',
+    ];
+    private isDebugging = false;
 
     public async Extract(): Promise<unknown> {
         const initial = await this.ExtractInitial();
@@ -73,10 +79,18 @@ export default class LootExtractor extends BaseExtractor {
             );
 
             for (const tableFile of tableFiles) {
-                if (this.IGNORED_FILES.includes(tableFile)) continue;
+                if (!this.WHITELISTED_FILES.includes(tableFile)) continue;
                 const rarity = this.determineRarity(tableFile);
+
                 loot[biome][rarity] = await this.ExtractLootFile(
                     join(tablesPath, tableFile)
+                );
+
+                this.debug(
+                    'Loot extracted for biome',
+                    biome,
+                    'with rarity',
+                    rarity
                 );
             }
         }
@@ -100,16 +114,19 @@ export default class LootExtractor extends BaseExtractor {
 
         for (const pool of table.pools) {
             for (const entry of pool.entries) {
+                this.debug(entry);
                 // Conditions
                 let itemConditions: any = {};
                 const conditions = entry.conditions;
                 if (conditions) {
+                    this.debug('Conditions found for item');
                     for (const condition of conditions) {
                         // Stone mined
                         if (
                             condition.scores &&
                             condition.scores['mt.progression']
                         ) {
+                            this.debug('Stone mined condition found');
                             itemConditions.stoneMined = {};
                             itemConditions.stoneMined.min =
                                 condition.scores['mt.progression'].min;
@@ -120,8 +137,11 @@ export default class LootExtractor extends BaseExtractor {
                 }
 
                 if (entry.type === 'minecraft:loot_table') {
+                    this.debug('Loot table found, extracting');
                     // mt:chests/savanna_treasure/savanna_helmet
                     const name = entry.value.replace('mt:', '') + '.json';
+
+                    this.debug('Extracting loot table', name);
 
                     const subLoot = await this.ExtractLootFile(
                         join(this.ROOT_LOOT_TABLE_DIR, name)
@@ -131,6 +151,7 @@ export default class LootExtractor extends BaseExtractor {
                             return { ...item, conditions: itemConditions };
                         }
                     );
+                    this.debug('Loot table extracted:', subLootWithCondition);
                     loot = [...loot, ...subLootWithCondition];
                 }
 
@@ -138,14 +159,17 @@ export default class LootExtractor extends BaseExtractor {
                     continue;
                 }
 
+                this.debug('Item found, extracting');
                 let item: PoolItem = { type: entry.name, conditions: {} };
                 if (entry.functions) {
+                    this.debug('Item has functions');
                     // NBT modifications
                     const nbtModifications = entry.functions.filter(
                         (f: { function: string }) =>
                             /(minecraft:)?set_nbt/gm.test(f.function)
                     );
                     if (nbtModifications.length) {
+                        this.debug('NBT modifications found');
                         for (const mod of nbtModifications) {
                             const nbtJson = JSON.parse(toJson(mod.tag));
                             if (nbtJson.display && nbtJson.display.Name) {
@@ -181,6 +205,7 @@ export default class LootExtractor extends BaseExtractor {
                             /(minecraft:)?set_attributes/gm.test(f.function)
                     );
                     if (attributeModifications) {
+                        this.debug('Attribute modifications found');
                         item['attributes'] =
                             attributeModifications.modifiers.map(
                                 (modifier: any) => {
@@ -213,6 +238,7 @@ export default class LootExtractor extends BaseExtractor {
                     );
 
                     if (enchantmentModificationsList) {
+                        this.debug('Enchantment modifications found');
                         let enchantments = [];
                         for (const enchantmentModifications of enchantmentModificationsList) {
                             for (const key of Object.keys(
@@ -263,6 +289,7 @@ export default class LootExtractor extends BaseExtractor {
                             /(minecraft:)?set_name/gm.test(f.function)
                     );
                     if (nameModifications && nameModifications.name) {
+                        this.debug('Name modifications found');
                         // name doesnt HAVE to be an array, so check if it is first
                         if (Array.isArray(nameModifications.name)) {
                             item['name'] = nameModifications.name[0].text;
@@ -277,6 +304,7 @@ export default class LootExtractor extends BaseExtractor {
                             /(minecraft:)?set_lore/gm.test(f.function)
                     );
                     if (loreModifications && !item['lore']) {
+                        this.debug('Lore modifications found');
                         item['lore'] = loreModifications.lore.map(
                             (line: { text: string }) => line.text
                         );
@@ -291,6 +319,7 @@ export default class LootExtractor extends BaseExtractor {
                         componentModifications &&
                         componentModifications.components
                     ) {
+                        this.debug('Component modifications found');
                         // Unbreakable
                         const keys = Object.keys(
                             componentModifications.components
@@ -360,8 +389,11 @@ export default class LootExtractor extends BaseExtractor {
 
                 item['type'] = item['type'].replace('minecraft:', '');
                 if (!loot.includes(item)) loot.push(item);
+                this.debug('Item extracted', item);
             }
         }
+
+        this.debug(loot);
         return loot;
     }
 
@@ -461,5 +493,11 @@ export default class LootExtractor extends BaseExtractor {
         if (file.includes('epic')) return 'epic';
         if (file.includes('legendary')) return 'legendary';
         return 'legendary';
+    }
+
+    private debug(...args: any) {
+        if (this.isDebugging) {
+            this.logger.debug(...args);
+        }
     }
 }
