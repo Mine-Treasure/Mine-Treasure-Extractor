@@ -382,6 +382,13 @@ export default class LootExtractor extends BaseExtractor {
                             }
                         }
 
+                        if (keys.includes('minecraft:item_model')) {
+                            item['type'] =
+                                componentModifications.components[
+                                    'minecraft:item_model'
+                                ];
+                        }
+
                         // Store raw component json
                         item['components'] = componentModifications.components;
                     }
