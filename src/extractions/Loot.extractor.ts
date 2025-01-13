@@ -52,6 +52,7 @@ export default class LootExtractor extends BaseExtractor {
         'epic.json',
         'legendary.json',
     ];
+    private readonly EXCLUDED_DIRS = ['mythical'];
     private isDebugging = false;
 
     public async Extract(): Promise<unknown> {
@@ -71,6 +72,8 @@ export default class LootExtractor extends BaseExtractor {
         const biomes = await readdir(this.LOOT_TABLE_DIR);
         let loot: TreasureLoot = {};
         for (const biome of biomes) {
+            if (this.EXCLUDED_DIRS.includes(biome)) continue;
+
             loot[biome] = {};
 
             const tablesPath = join(this.LOOT_TABLE_DIR, biome);
@@ -122,16 +125,13 @@ export default class LootExtractor extends BaseExtractor {
                     this.debug('Conditions found for item');
                     for (const condition of conditions) {
                         // Stone mined
-                        if (
-                            condition.scores &&
-                            condition.scores['mt.progression']
-                        ) {
+                        if (condition.scores && condition.scores['mt.total']) {
                             this.debug('Stone mined condition found');
                             itemConditions.stoneMined = {};
                             itemConditions.stoneMined.min =
-                                condition.scores['mt.progression'].min;
+                                condition.scores['mt.total'].min;
                             itemConditions.stoneMined.max =
-                                condition.scores['mt.progression'].max;
+                                condition.scores['mt.total'].max;
                         }
                     }
                 }
@@ -387,6 +387,21 @@ export default class LootExtractor extends BaseExtractor {
                                 componentModifications.components[
                                     'minecraft:item_model'
                                 ];
+                        }
+
+                        if (keys.includes('minecraft:item_name')) {
+                            const value = JSON.parse(
+                                componentModifications.components[
+                                    'minecraft:item_name'
+                                ]
+                            );
+
+                            // name doesnt HAVE to be an array, so check if it is first
+                            if (Array.isArray(value)) {
+                                item['name'] = value[0].text;
+                            } else {
+                                item['name'] = value.text;
+                            }
                         }
 
                         // Store raw component json

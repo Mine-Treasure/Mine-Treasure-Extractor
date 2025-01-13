@@ -38,6 +38,7 @@ export default class VariableBlockMapExtractor extends BaseExtractor {
             } block variables`
         );
 
+        console.log(this.passingData);
         this.writeOut(this.passingData['mineable_blocks'], 'blocks.json');
         return this.passingData;
     }
