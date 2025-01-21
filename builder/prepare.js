@@ -67,6 +67,11 @@ const downloadDatapack = async () => {
 };
 
 (async () => {
+    // Delete pack directry
+    if (fs.existsSync(path.join(__dirname, '../pack'))) {
+        fs.rmdirSync(path.join(__dirname, '../pack'), { recursive: true });
+    }
+
     // Create pack directory
     if (!fs.existsSync(path.join(__dirname, '../pack'))) {
         fs.mkdirSync(path.join(__dirname, '../pack'));
